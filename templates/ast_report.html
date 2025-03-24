@@ -1,0 +1,45 @@
+{% extends "base_report.html" %}
+
+{% block content %}
+    <div class="stats-container">
+        <div class="stat-card">
+            <h3>Total Issues</h3>
+            <pre>{{ results | tojson(indent=2) }}</pre>
+            <div class="stat-number">{{ results|length }}</div>
+        </div>
+    </div>
+
+    {% if results %}
+    <div class="vulnerability-list">
+        <h2>Detected Issues</h2>
+        {% for result in results %}
+        <div class="vulnerability-card severity-{{ result.severity|lower }}">
+            <h3>{{ result.issue }}</h3>
+            <div class="vulnerability-type type-{{ result.category|lower }}">{{ result.category }}</div>
+            <p><strong>Severity:</strong> {{ result.severity }}</p>
+            <p><strong>File:</strong> {{ result.file }}</p>
+            <p><strong>Line:</strong> {{ result.line }}</p>
+            <div class="code-block">{{ result.code }}</div>
+            {% if result.required_checks %}
+            <div class="validation-missing">
+                <strong>Missing Validations:</strong>
+                <ul>
+                    {% for check in result.required_checks %}
+                    <li>{{ check }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if result.fix_suggestion %}
+            <div class="fix-suggestion">
+                <strong>Suggested Fix:</strong>
+                <pre>{{ result.fix_suggestion }}</pre>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No issues found.</p>
+    {% endif %}
+{% endblock %}
