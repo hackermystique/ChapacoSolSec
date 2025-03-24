@@ -1,0 +1,17 @@
+Flask
+GitPython
+black
+flake8
+imblearn
+joblib
+lightgbm
+mypy
+numpy
+pandas
+pytest
+regex
+scikit-learn
+scipy
+toml
+tree_sitter==0.20.1
+xgboost

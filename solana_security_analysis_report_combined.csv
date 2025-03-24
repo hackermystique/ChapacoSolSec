@@ -1,0 +1,146 @@
+Contract,ContractType,LinesOfCode,NumFunctionCalls,NumLoops,NumIfs,NumUnsafeBlocks,NumAnchorMacros,NumPDAs,NumCPICalls,NumStateAccounts,NumTokenAccounts,ComplexityScore,SecurityScore,VulnerabilityType,Severity
+AccessControlAnchor1,Anchor,100,8,0,1,0,4,2,1,1,2,3,7,Access Control,High
+AccessControlAnchor2,Anchor,110,7,0,2,0,5,3,2,2,1,4,6,Access Control,Medium
+AccessControlAnchor3,Anchor,95,6,1,3,0,4,2,1,1,1,3,7,Access Control,Medium
+AccessControlRaw1,Raw,80,5,0,0,0,0,1,1,1,1,2,8,Access Control,Low
+AccessControlRaw2,Raw,85,6,1,2,0,0,1,1,1,1,3,7,Access Control,Medium
+ArithmeticAnchor1,Anchor,140,12,1,5,0,3,2,3,2,2,5,5,Arithmetic,Critical
+ArithmeticAnchor2,Anchor,135,11,2,4,0,4,2,2,2,2,4,6,Arithmetic,High
+ArithmeticRaw1,Raw,110,9,2,4,0,0,1,2,1,1,4,6,Arithmetic,High
+ArithmeticRaw2,Raw,115,10,1,3,0,0,1,1,1,1,3,7,Arithmetic,Medium
+MemorySafety1,Raw,120,7,1,3,2,0,0,1,1,0,5,4,Memory Safety,Critical
+MemorySafety2,Raw,125,8,2,4,3,0,0,2,1,0,6,3,Memory Safety,Critical
+MemorySafety3,Raw,115,6,1,2,1,0,0,1,1,0,4,5,Memory Safety,High
+ReentrancyAnchor1,Anchor,150,15,2,6,0,6,4,5,3,2,7,3,Reentrancy,Critical
+ReentrancyAnchor2,Anchor,145,14,2,5,0,5,3,4,2,2,6,4,Reentrancy,Critical
+ReentrancyRaw1,Raw,130,12,2,4,0,0,2,3,2,1,5,5,Reentrancy,High
+DataRaceAnchor1,Anchor,130,10,1,4,0,4,2,3,2,1,5,5,Data Race,High
+DataRaceAnchor2,Anchor,125,9,1,3,0,3,2,2,2,1,4,6,Data Race,Medium
+DataRaceRaw1,Raw,110,8,1,3,0,0,1,2,1,1,3,7,Data Race,Medium
+OverflowAnchor1,Anchor,125,11,2,5,0,5,2,2,2,2,4,6,Arithmetic Overflow,High
+OverflowAnchor2,Anchor,120,10,1,4,0,4,2,2,2,2,4,6,Arithmetic Overflow,Medium
+OverflowRaw1,Raw,100,8,1,3,0,0,1,1,1,1,3,7,Arithmetic Overflow,Medium
+UnauthorizedDebitAnchor1,Anchor,145,13,1,7,0,7,3,4,2,3,6,4,Unauthorized Debit,Critical
+UnauthorizedDebitAnchor2,Anchor,140,12,1,6,0,6,3,3,2,2,5,5,Unauthorized Debit,High
+UnauthorizedDebitRaw1,Raw,120,10,1,4,0,0,2,2,1,2,4,6,Unauthorized Debit,High
+PDAValidationAnchor1,Anchor,135,12,1,5,0,5,4,3,2,2,5,5,PDA Validation,High
+PDAValidationAnchor2,Anchor,130,11,1,4,0,4,3,2,2,2,4,6,PDA Validation,Medium
+PDAValidationRaw1,Raw,115,9,1,3,0,0,2,2,1,1,3,7,PDA Validation,Medium
+TokenAccountAnchor1,Anchor,155,14,2,6,0,6,3,4,2,4,6,4,Token Account,Critical
+TokenAccountAnchor2,Anchor,150,13,2,5,0,5,3,3,2,3,5,5,Token Account,High
+TokenAccountRaw1,Raw,130,11,1,4,0,0,2,2,1,2,4,6,Token Account,High
+CPIAnchor1,Anchor,160,15,2,7,0,7,4,6,3,2,7,3,CPI Validation,Critical
+CPIAnchor2,Anchor,155,14,2,6,0,6,3,5,2,2,6,4,CPI Validation,Critical
+CPIRaw1,Raw,135,12,1,5,0,0,2,4,2,1,5,5,CPI Validation,High
+StateAccountAnchor1,Anchor,140,13,1,5,0,5,2,3,4,2,5,5,State Account,High
+StateAccountAnchor2,Anchor,135,12,1,4,0,4,2,2,3,2,4,6,State Account,Medium
+StateAccountRaw1,Raw,120,10,1,3,0,0,1,2,2,1,3,7,State Account,Medium
+ConstraintAnchor1,Anchor,145,14,2,6,0,6,3,3,2,2,5,5,Constraint Validation,High
+ConstraintAnchor2,Anchor,140,13,2,5,0,5,3,2,2,2,4,6,Constraint Validation,Medium
+ConstraintRaw1,Raw,125,11,1,4,0,0,2,2,1,1,3,7,Constraint Validation,Medium
+SerializationAnchor1,Anchor,130,12,1,5,0,5,2,2,2,1,4,6,Serialization,High
+SerializationAnchor2,Anchor,125,11,1,4,0,4,2,2,2,1,4,6,Serialization,Medium
+SerializationRaw1,Raw,110,9,1,3,0,0,1,1,1,1,3,7,Serialization,Medium
+InitializationAnchor1,Anchor,150,14,2,6,0,6,3,3,3,2,5,5,Initialization,High
+InitializationAnchor2,Anchor,145,13,2,5,0,5,3,2,2,2,4,6,Initialization,Medium
+InitializationRaw1,Raw,130,11,1,4,0,0,2,2,2,1,3,7,Initialization,Medium
+OwnershipAnchor1,Anchor,140,13,1,6,0,6,3,3,2,2,5,5,Ownership,High
+OwnershipAnchor2,Anchor,135,12,1,5,0,5,3,2,2,2,4,6,Ownership,Medium
+OwnershipRaw1,Raw,120,10,1,4,0,0,2,2,1,1,3,7,Ownership,Medium
+SysvarAnchor1,Anchor,125,11,1,4,0,4,2,2,2,1,4,6,Sysvar Usage,High
+SysvarAnchor2,Anchor,120,10,1,3,0,3,2,2,2,1,3,7,Sysvar Usage,Medium
+SysvarRaw1,Raw,105,8,1,2,0,0,1,1,1,1,2,8,Sysvar Usage,Low
+AccessControlRaw3,Raw,95,6,0,1,0,0,0,0,0,0,0,0,Access Control,Medium
+AccessControlRaw4,Raw,100,7,0,2,0,0,0,0,0,0,0,0,Access Control,Medium
+ArithmeticAnchor3,Anchor,130,10,1,3,0,5,0,0,0,0,0,0,Arithmetic,Medium
+ArithmeticAnchor4,Anchor,125,9,1,3,0,4,0,0,0,0,0,0,Arithmetic,Medium
+ArithmeticRaw3,Raw,120,11,2,5,0,0,0,0,0,0,0,0,Arithmetic,Medium
+MemorySafety4,Raw,140,10,1,5,2,0,0,0,0,0,0,0,Memory Safety,Medium
+MemorySafety5,Raw,115,8,1,3,2,0,0,0,0,0,0,0,Memory Safety,Medium
+MemorySafety6,Raw,125,9,1,4,3,0,0,0,0,0,0,0,Memory Safety,Medium
+S01_Overflow1,Raw,115,10,2,3,0,0,0,0,0,0,0,0,Integer Overflows and Underflows,Medium
+S01_Overflow2,Raw,110,9,1,2,0,0,0,0,0,0,0,0,Integer Overflows and Underflows,Medium
+S01_Overflow3,Raw,125,11,2,4,0,0,0,0,0,0,0,0,Integer Overflows and Underflows,Medium
+S01_Overflow4,Raw,130,10,1,3,0,0,0,0,0,0,0,0,Integer Overflows and Underflows,Medium
+S01_Overflow5,Raw,135,14,2,7,0,0,0,0,0,0,0,0,Integer Overflows and Underflows,Medium
+S02_SysvarUnverified1,Anchor,132,10,0,3,0,6,0,0,0,0,0,0,Missing System Account Check,Medium
+S02_SysvarUnverified2,Anchor,134,11,0,4,0,7,0,0,0,0,0,0,Missing System Account Check,Medium
+S02_SysvarUnverified3,Anchor,136,12,0,5,0,8,0,0,0,0,0,0,Missing System Account Check,Medium
+S02_SysvarUnverified4,Anchor,138,13,0,6,0,9,0,0,0,0,0,0,Missing System Account Check,Medium
+S02_SysvarUnverified5,Anchor,138,10,0,3,0,5,0,0,0,0,0,0,Missing System Account Check,Medium
+S03_NoErrorCheck1,Anchor,122,10,1,4,0,4,0,0,0,0,0,0,Lack of Error Handling,Medium
+S03_NoErrorCheck2,Raw,124,11,2,5,0,0,0,0,0,0,0,0,Lack of Error Handling,Medium
+S03_NoErrorCheck3,Anchor,120,9,1,3,0,3,0,0,0,0,0,0,Lack of Error Handling,Medium
+S03_NoErrorCheck4,Anchor,135,11,2,4,0,5,0,0,0,0,0,0,Lack of Error Handling,Medium
+S03_NoErrorCheck5,Anchor,130,14,2,8,0,8,0,0,0,0,0,0,Lack of Error Handling,Medium
+S04_PDABypass1,Anchor,146,12,0,4,0,7,0,0,0,0,0,0,PDA Substitution Check,Medium
+S04_PDABypass2,Anchor,147,13,0,5,0,8,0,0,0,0,0,0,PDA Substitution Check,Medium
+S04_PDABypass3,Anchor,148,14,0,6,0,9,0,0,0,0,0,0,PDA Substitution Check,Medium
+S04_PDABypass4,Anchor,145,11,0,3,0,6,0,0,0,0,0,0,PDA Substitution Check,Medium
+S04_PDABypass5,Anchor,150,16,0,8,0,11,0,0,0,0,0,0,PDA Substitution Check,Medium
+S05_DivZero1,Raw,105,8,1,3,1,0,0,0,0,0,0,0,Panic Due to Division by Zero,Medium
+S05_DivZero2,Raw,100,7,1,2,1,0,0,0,0,0,0,0,Panic Due to Division by Zero,Medium
+S05_DivZero3,Raw,110,9,1,3,1,0,0,0,0,0,0,0,Panic Due to Division by Zero,Medium
+S05_DivZero4,Raw,120,10,2,4,1,0,0,0,0,0,0,0,Panic Due to Division by Zero,Medium
+S05_DivZero5,Raw,115,9,2,4,1,0,0,0,0,0,0,0,Panic Due to Division by Zero,Medium
+S06_InitOverride1,Anchor,120,8,0,2,0,5,0,0,0,0,0,0,Account Initialized Check,Medium
+S06_InitOverride2,Anchor,126,10,0,4,0,7,0,0,0,0,0,0,Account Initialized Check,Medium
+S06_InitOverride3,Anchor,129,11,0,5,0,8,0,0,0,0,0,0,Account Initialized Check,Medium
+S06_InitOverride4,Anchor,132,12,0,6,0,9,0,0,0,0,0,0,Account Initialized Check,Medium
+S06_InitOverride5,Anchor,125,9,0,3,0,5,0,0,0,0,0,0,Account Initialized Check,Medium
+S07_RoundingBug1,Raw,136,11,0,4,0,0,0,0,0,0,0,0,Loss of Precision,Medium
+S07_RoundingBug2,Raw,137,12,0,5,0,0,0,0,0,0,0,0,Loss of Precision,Medium
+S07_RoundingBug3,Raw,138,13,0,3,0,0,0,0,0,0,0,0,Loss of Precision,Medium
+S07_RoundingBug4,Raw,135,10,0,3,0,0,0,0,0,0,0,0,Loss of Precision,Medium
+S07_RoundingBug5,Raw,138,11,0,4,0,0,0,0,0,0,0,0,Loss of Precision,Medium
+S08_RaceCond1,Anchor,152,13,2,6,0,7,0,0,0,0,0,0,Concurrent State Manipulation,Medium
+S08_RaceCond2,Anchor,154,14,1,7,0,8,0,0,0,0,0,0,Concurrent State Manipulation,Medium
+S08_RaceCond3,Anchor,156,15,2,8,0,9,0,0,0,0,0,0,Concurrent State Manipulation,Medium
+S08_RaceCond4,Anchor,150,13,1,5,0,6,0,0,0,0,0,0,Concurrent State Manipulation,Medium
+S08_RaceCond5,Anchor,155,13,1,6,0,7,0,0,0,0,0,0,Concurrent State Manipulation,Medium
+S09_SigBypass1,Anchor,131,11,0,4,0,6,0,0,0,0,0,0,Lack of Signature Validation,Medium
+S09_SigBypass2,Raw,125,10,0,2,0,0,0,0,0,0,0,0,Lack of Signature Validation,Medium
+S09_SigBypass3,Anchor,133,13,0,6,0,8,0,0,0,0,0,0,Lack of Signature Validation,Medium
+S09_SigBypass4,Anchor,145,12,0,4,0,6,0,0,0,0,0,0,Lack of Signature Validation,Medium
+S09_SigBypass5,Anchor,135,15,0,8,0,10,0,0,0,0,0,0,Lack of Signature Validation,Medium
+S10_LamportLeak1,Anchor,141,11,0,3,0,6,0,0,0,0,0,0,Missing Check for Lamports,Medium
+S10_LamportLeak2,Anchor,142,12,0,4,0,7,0,0,0,0,0,0,Missing Check for Lamports,Medium
+S10_LamportLeak3,Anchor,140,10,0,2,0,5,0,0,0,0,0,0,Missing Check for Lamports,Medium
+S10_LamportLeak4,Anchor,135,9,0,2,0,4,0,0,0,0,0,0,Missing Check for Lamports,Medium
+S10_LamportLeak5,Anchor,145,15,0,7,0,10,0,0,0,0,0,0,Missing Check for Lamports,Medium
+SafeAnchor1,Anchor,200,15,1,5,0,6,0,0,0,0,0,0,Safe,Medium
+SafeAnchor2,Anchor,180,14,1,6,0,5,0,0,0,0,0,0,Safe,Medium
+SafeAnchor3,Anchor,220,16,1,7,0,7,0,0,0,0,0,0,Safe,Medium
+SafeAnchorContract1,Anchor,200,15,1,5,0,6,0,0,0,0,0,0,Safe,Medium
+SafeAnchorContract2,Anchor,210,14,1,6,0,5,0,0,0,0,0,0,Safe,Medium
+SafeAnchorContract3,Anchor,190,13,0,4,0,7,0,0,0,0,0,0,Safe,Medium
+SafeRaw1,Raw,150,10,0,4,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRaw2,Raw,160,12,0,3,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRaw3,Raw,170,13,0,5,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRaw4,Raw,155,11,0,4,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRaw5,Raw,165,12,0,6,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRawContract1,Raw,150,10,0,4,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRawContract2,Raw,160,12,0,3,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRawContract3,Raw,155,11,0,5,0,0,0,0,0,0,0,0,Safe,Medium
+SafeRawContract4,Raw,170,13,0,6,0,0,0,0,0,0,0,0,Safe,Medium
+UncheckedAccountAnchor1,Anchor,145,13,0,3,0,6,0,0,0,0,0,0,Access Control,Medium
+UncheckedAccountAnchor2,Anchor,150,14,0,2,0,7,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor1,Anchor,120,10,0,2,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor2,Anchor,125,11,0,3,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor3,Anchor,130,12,0,4,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor4,Anchor,135,13,0,5,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor5,Anchor,140,14,0,6,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor6,Anchor,145,15,0,7,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor7,Anchor,150,16,0,8,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor8,Anchor,155,17,0,9,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIAnchor9,Anchor,160,18,0,10,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIRaw1,Raw,105,10,0,2,0,0,0,0,0,0,0,0,Access Control,Medium
+UncheckedCPIRaw2,Raw,95,9,0,1,0,0,0,0,0,0,0,0,Access Control,Medium
+UnsafeAnchor1,Anchor,125,9,0,2,1,4,0,0,0,0,0,0,Memory Safety,Medium
+UnsafeAnchor2,Anchor,130,10,1,4,2,3,0,0,0,0,0,0,Memory Safety,Medium
+ValidationIssue1,Anchor,130,10,0,2,0,8,0,0,0,0,0,0,Validation Issues,Medium
+ValidationIssue2,Anchor,70,4,0,1,0,5,0,0,0,0,0,0,Validation Issues,Medium
+ValidationIssue3,Anchor,85,6,0,2,0,7,0,0,0,0,0,0,Validation Issues,Medium
+ValidationIssue4,Anchor,95,7,0,1,0,6,0,0,0,0,0,0,Validation Issues,Medium
+ValidationIssue5,Anchor,105,8,0,3,0,9,0,0,0,0,0,0,Validation Issues,Medium
+ValidationIssue6,Anchor,115,9,0,3,0,7,0,0,0,0,0,0,Validation Issues,Medium
