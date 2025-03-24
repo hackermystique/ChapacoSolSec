@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Browser</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+
+        }
+
+        th,
+        td {
+            padding: 2px;
+            text-align: center;
+
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        th {
+            background-color: #04AA6D;
+            border: 1px solid;
+        }
+
+        td {
+            border: 1px solid;
+        }
+
+        .container {
+            width: 400px;
+            display: inline-block;
+            margin: 20px;
+        }
+
+        button {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: ghostwhite;
+        }
+
+        .breadcrumbs {
+            margin: 20px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .breadcrumbs a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            text-decoration: underline;
+        }
+        .project-status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e6ffe6;
+            border-radius: 4px;
+            border: 1px solid #b3ffb3;
+        }
+        .upload-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #0366d6;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .upload-link:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+        <h1>Project Browser</h1>
+        
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumbs">
+            <a href="{{ url_for('upload_project') }}">Main</a>
+            {% for part in path_parts %}
+                / <a href="{{ url_for('browse_directories', project_subpath='/'.join(path_parts[:loop.index])) }}">{{ part }}</a>
+            {% endfor %}
+        </div>
+
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Actions</th>
+            </tr>
+            {% for dir in directories %}
+            <tr>
+                <td>{{ dir }}</td>
+                <td>
+                    {% if is_browsing %}
+                        <button onclick="browseProject('{{ current_path + '/' + dir if current_path else dir }}')">Browse</button>
+                        {% if is_valid_project %}
+                            <button onclick="analyzeProject('{{ current_path }}')">Analyze</button>
+                            <button onclick="runAstAnalysis('{{ current_path }}')">AST Analysis</button>
+                        {% endif %}
+                    {% else %}
+                        <button onclick="browseProject('{{ dir }}')">Browse</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        
+        {% if is_valid_project %}
+        <div class="project-status">
+            <p>✅ This is a valid Solana project! You can analyze it using the buttons above.</p>
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('upload_project') }}" class="upload-link">Upload a New Project</a>
+    </div>
+
+    <script>
+        function browseProject(path) {
+            window.location.href = "/browse/" + path;
+        }
+    
+        function analyzeProject(path) {
+            window.location.href = "/analyze/" + path;
+        }
+
+        function runAstAnalysis(path) {
+            window.location.href = "/ast-analysis/" + path;
+        }
+    </script>
+    
+</body>
+
+</html>

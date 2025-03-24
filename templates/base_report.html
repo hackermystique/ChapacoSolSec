@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Solana Security Analysis Report</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .scatter-tooltip {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .vulnerability-list {
+            margin-top: 30px;
+        }
+
+        .vulnerability-item {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .severity-critical {
+            border-left: 5px solid #dc3545;
+        }
+
+        .severity-high {
+            border-left: 5px solid #fd7e14;
+        }
+
+        .severity-medium {
+            border-left: 5px solid #ffc107;
+        }
+
+        .severity-low {
+            border-left: 5px solid #28a745;
+        }
+
+        .code-snippet {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        button,
+        select {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #f8f9fa;
+        }
+
+        .primary-button {
+            background: #0d6efd;
+            color: white;
+            border: none;
+        }
+
+        .primary-button:hover {
+            background: #0b5ed7;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #04AA6D;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="controls">
+            <a href="{{ url_for('list_projects') }}" class="button">Back to Projects</a>
+            <div>
+                <select name="format" id="formatSelect">
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                    <option value="txt">TXT</option>
+                    <option value="md">Markdown</option>
+                    <option value="html">HTML</option>
+                </select>
+                <button onclick="downloadReport()" class="primary-button">Download Report</button>
+                {% if show_ast_button %}
+                <button onclick="runAstAnalysis('{{ project_name }}')" class="primary-button">AST Analysis</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <h1>{{ header1 }} Security Analysis Report for {{ project_name }}</h1>
+
+        <div class="chart-grid">
+            <div class="chart-container">
+                <div id="severityChart"></div>
+            </div>
+            <div class="chart-container">
+                <div id="categoryChart"></div>
+            </div>
+            <div class="chart-container">
+                <div id="riskScatterChart"></div>
+            </div>
+            <div class="chart-container">
+                <div id="validationChart"></div>
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        const initCharts = (chartData) => {
+            // Severity Distribution Chart
+            const severityChart = new ApexCharts(document.querySelector('#severityChart'), {
+                chart: {
+                    type: 'donut',
+                    height: 350,
+                    dropShadow: {
+                        enabled: true,
+                        top: 5,
+                        left: 5,
+                        blur: 10,
+                        opacity: 0.2
+                    }
+                },
+                series: chartData.severity_chart.series,
+                labels: chartData.severity_chart.labels,
+                title: {
+                    text: 'Severity Distribution',
+                    align: 'center',
+                    style: {
+                        fontSize: '18px',
+                        fontWeight: 'bold'
+                    }
+                },
+                colors: ['#dc3545', '#fd7e14', '#ffc107', '#28a745'],
+                tooltip: {
+                    y: {
+                        formatter: value => value + ' issues'
+                    }
+                },
+                legend: {
+                    position: 'bottom',
+                    horizontalAlign: 'center'
+                },
+                dataLabels: {
+                    enabled: true,
+                    formatter: (val, opts) => {
+                        return opts.w.config.series[opts.seriesIndex] + ' issues'
+                    }
+                }
+            });
+            severityChart.render();
+    
+            // Issue Categories Chart
+            const categoryChart = new ApexCharts(document.querySelector('#categoryChart'), {
+                chart: {
+                    type: 'bar',
+                    height: 350,
+                    toolbar: {
+                        show: true
+                    },
+                    dropShadow: {
+                        enabled: true,
+                        opacity: 0.1
+                    }
+                },
+                series: [{
+                    name: 'Issues',
+                    data: chartData.category_chart.series
+                }],
+                xaxis: {
+                    categories: chartData.category_chart.labels,
+                    title: {
+                        text: 'Category',
+                        style: {
+                            fontSize: '14px',
+                            fontWeight: 'normal'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            fontSize: '12px'
+                        }
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Number of Issues',
+                        style: {
+                            fontSize: '14px',
+                            fontWeight: 'normal'
+                        }
+                    }
+                },
+                title: {
+                    text: 'Issue Categories',
+                    align: 'center',
+                    style: {
+                        fontSize: '18px',
+                        fontWeight: 'bold'
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: value => value + ' issues'
+                    }
+                },
+                plotOptions: {
+                    bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%',
+                        dataLabels: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+            categoryChart.render();
+    
+            // Risk Score Distribution Chart
+            const riskScatterChart = new ApexCharts(document.querySelector('#riskScatterChart'), {
+                chart: {
+                    type: 'scatter',
+                    height: 350,
+                    zoom: {
+                        enabled: true,
+                        type: 'xy'
+                    },
+                    toolbar: {
+                        show: true,
+                        tools: {
+                            download: true,
+                            selection: true,
+                            zoom: true,
+                            zoomin: true,
+                            zoomout: true,
+                            pan: true,
+                            reset: true
+                        }
+                    }
+                },
+                series: chartData.risk_scatter_chart.series,
+                xaxis: {
+                    title: { 
+                        text: 'Line Number',
+                        style: {
+                            fontSize: '14px',
+                            fontWeight: 'normal'
+                        }
+                    }
+                },
+                yaxis: {
+                    title: { text: 'Risk Score' },
+                    min: 0,
+                    max: 10,
+                    tickAmount: 4,
+                    labels: {
+                        formatter: (val) => {
+                            if (val === 10) return 'Critical';
+                            if (val === 7.5) return 'High';
+                            if (val === 5) return 'Medium';
+                            if (val === 2.5) return 'Low';
+                            return '';
+                        }
+                    }
+                },
+                title: {
+                    text: 'Risk Score Distribution',
+                    align: 'center'
+                },
+                grid: {
+                    show: true,
+                    borderColor: '#e0e0e0',
+                    strokeDashArray: 4,
+                    yaxis: {
+                        lines: {
+                            show: true
+                        }
+                    }
+                },
+                tooltip: {
+                    custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+                        const point = w.config.series[seriesIndex].data[dataPointIndex];
+                        let severity = 'Unknown';
+                        if (point.y === 10) severity = 'Critical';
+                        else if (point.y === 7.5) severity = 'High';
+                        else if (point.y === 5) severity = 'Medium';
+                        else if (point.y === 2.5) severity = 'Low';
+                        return `<div class="scatter-tooltip">
+                            <b>Line:</b> ${point.x}<br>
+                            <b>Severity:</b> ${severity}<br>
+                            <b>Category:</b> ${point.category}
+                        </div>`;
+                    }
+                },
+                markers: { 
+                    size: 8,
+                    colors: ['#dc3545', '#fd7e14', '#ffc107', '#28a745'],
+                    strokeWidth: 0
+                }
+            });
+            riskScatterChart.render();
+    
+            const validationChart = new ApexCharts(document.querySelector('#validationChart'), {
+                chart: {
+                    type: 'radar',
+                    height: 350,
+                    dropShadow: {
+                        enabled: true,
+                        blur: 1,
+                        left: 1,
+                        top: 1
+                    },
+                    toolbar: {
+                        show: false
+                    }
+                },
+                series: [{
+                    name: 'Missing Validations',
+                    data: chartData.validation_chart.series
+                }],
+                stroke: {
+                    width: 2
+                },
+                fill: {
+                    opacity: 0.45,
+                    colors: ['#FF4560']
+                },
+                markers: {
+                    size: 5,
+                    colors: ['#FF4560'],
+                    strokeWidth: 2
+                },
+                xaxis: {
+                    categories: chartData.validation_chart.labels,
+                    labels: {
+                        style: {
+                            fontSize: '12px',
+                            fontWeight: 500
+                        }
+                    }
+                },
+                yaxis: {
+                    show: true,
+                    labels: {
+                        formatter: (val) => Math.round(val),
+                        style: {
+                            fontSize: '11px'
+                        }
+                    }
+                },
+                title: {
+                    text: 'Missing Validation Types',
+                    align: 'center',
+                    style: {
+                        fontSize: '16px',
+                        fontWeight: 600
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: value => value + ' instances'
+                    },
+                    style: {
+                        fontSize: '12px'
+                    }
+                }
+            });
+            validationChart.render();
+        };
+    
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const chartData = JSON.parse('{{ chart_data|tojson|safe }}');
+                if (!chartData || !chartData.severity_chart || !chartData.severity_chart.series) {
+                    console.warn("No chart data available.");
+                    return;
+                }
+                initCharts(chartData);
+            } catch (err) {
+                console.error("Chart rendering failed:", err);
+            }
+        });
+    
+        function downloadReport() {
+            const format = document.getElementById('formatSelect').value;
+            const projectName = "{{ project_name }}";
+            if (projectName.includes("ast")) {
+                window.location.href = `/download-ast-report/${format}/${projectName}`;
+            } else {
+                window.location.href = `/download-report/${format}/${projectName}`;
+            }
+        }
+    
+        function runAstAnalysis(projectName) {
+            window.location.href = `/ast_analysis/${projectName}`;
+        }
+    </script>
+</body>
+
+</html>

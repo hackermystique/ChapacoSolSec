@@ -1,0 +1,47 @@
+{% extends "base_report.html" %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='report.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="stats-container">
+        <div class="stat-card">
+            <h3>Total Issues</h3>
+            <div class="stat-number">{{ results|length }}</div>
+        </div>
+    </div>
+
+    {% if results %}
+    <div class="vulnerability-list">
+        <h2>Detected Issues</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Severity</th>
+                    <th>Description</th>
+                    <th>Location</th>
+                    <th>Code</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr class="severity-{{ result.severity|lower }}">
+                    <td>{{ result.id }}</td>
+                    <td>{{ result.severity }}</td>
+                    <td>{{ result.description }}</td>
+                    <td>{{ result.file }}:<code>{{ result.line }}</code></td>
+                    <td><code>{{ result.code }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No issues found.</p>
+    {% endif %}
+{% endblock %}
+
+{% block scripts_extra %}
+{% endblock %}

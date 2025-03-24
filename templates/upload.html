@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects List</title>
+    <style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f0f2f5;
+    }
+    h2 {
+        color: #333;
+    }
+    table {
+        width: 100%;
+        border-collapse: separate;
+        border: 1px solid black;
+        margin-top: 20px;
+        font-size: 15px;
+    }
+    th, td {
+        padding: 12px;
+        border-bottom: 1px solid #ddd;
+    }
+    tr:hover {background-color: #f5f5f5;}
+    th {
+        background-color: #04AA6D;
+        text-align: center;
+        color: white;
+    }
+    .container {
+        width: 400px;
+        display: inline-block;
+        margin: 20px;
+    }
+    button {
+        padding: 10px;
+        margin: 2px;
+        cursor: pointer;
+        color: white;
+        border: none;
+        font-size: 14px;
+        background: #0d6efd;
+        }
+        .upload-link {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 20px 30px;
+            padding-block: 20px;
+            background: #0366d6;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            align-self: center;
+        }
+        .upload-link:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <h2>Upload GitHub Repository</h2>
+    <form action="/" method="post">
+        <label for="repo_url">GitHub Repo URL:</label>
+        <input type="text" name="repo_url" required>
+        <button type="submit">Upload</button>
+    </form>
+    <div class="container">
+    <a href="{{ url_for('list_projects') }}" class="upload-link">View Projects</a>
+    </div>
+</div>
+<div class="container" style="vertical-align: top;">
+    <h2>Existing Projects</h2>
+    <table id="projectsTable">
+        <thead>
+            <tr>
+                <th>Repository URL</th>
+                <th>Branch</th>
+                <th>Commit</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div style="margin-top: 10px;">
+        <button onclick="previousPage()">←</button>
+        <button onclick="nextPage()">→</button>
+    </div>
+</div>
+
+<script>
+    let currentPage = 0;
+    const pageSize = 15;
+    
+    function renderTable() {
+        const tableBody = document.querySelector("#projectsTable tbody");
+        tableBody.innerHTML = "";
+        const start = currentPage * pageSize;
+        const end = start + pageSize;
+        const pageData = allRepos.slice(start, end);
+
+        for (const repo of pageData) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td><a href="${repo.url}" target="_blank">${repo.url}</a></td>
+                <td>${repo.branch}</td>
+                <td>${repo.commit}</td>
+                <td><button onclick="checkUpdate('${repo.name}')">Check Updates</button></td>
+            `;
+            tableBody.appendChild(row);
+        }
+    }
+
+    function previousPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            renderTable();
+        }
+    }
+
+    function nextPage() {
+        if ((currentPage + 1) * pageSize < allRepos.length) {
+            currentPage++;
+            renderTable();
+        }
+    }
+
+    function checkUpdate(repoName) {
+        fetch(`/check-update/${repoName}`, {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(`Update check for ${repoName}: ${data.status}`);
+        })
+        .catch(err => {
+            console.error("Update check failed:", err);
+            alert("Failed to check for updates.");
+        });
+    }
+
+    document.querySelector("form").addEventListener("submit", function(e) {
+        const url = document.querySelector('input[name="repo_url"]').value;
+        const exists = allRepos.some(repo => repo.url === url);
+        if (exists) {
+            e.preventDefault();
+            alert("Repository already exists.");
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", renderTable);
+</script>
+<script>
+    function renderTable() {
+    const tableBody = document.querySelector("#projectsTable tbody");
+    tableBody.innerHTML = "";
+    const start = currentPage * pageSize;
+    const end = start + pageSize;
+    const pageData = allRepos.slice(start, end);
+
+    for (const repo of pageData) {
+        const row = document.createElement("tr");
+        const shortHash = repo.commit ? repo.commit.slice(0, 7) : '—';
+        row.innerHTML = `
+            <td>${repo.url}</td>
+            <td>${repo.branch} (${shortHash})</td>
+            <td><button onclick="checkUpdate('${repo.name}')">Check Updates</button></td>
+        `;
+        tableBody.appendChild(row);
+    }
+}
+</script>
+<script>
+    const allRepos = JSON.parse('{{ existing_repos | tojson | safe }}');
+  </script>
+</body>
+</html>
+
