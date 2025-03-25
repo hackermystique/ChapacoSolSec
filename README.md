@@ -32,6 +32,10 @@ ChapacoSolSec is an advanced security analysis tool designed specifically for So
 - Homebrew
 
 ### Quick Start
+# Fork the repository
+Feel free to fork the repository and commit changes
+https://github.com/your-org/ChapacoSolSec.git
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-org/ChapacoSolSec.git
