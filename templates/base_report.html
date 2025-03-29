@@ -5,7 +5,6 @@
     <title>Solana Security Analysis Report</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
         body {
@@ -459,15 +458,11 @@
         function downloadReport() {
             const format = document.getElementById('formatSelect').value;
             const projectName = "{{ project_name }}";
-            if (projectName.includes("ast")) {
-                window.location.href = `/download-ast-report/${format}/${projectName}`;
-            } else {
-                window.location.href = `/download-report/${format}/${projectName}`;
-            }
+            window.location.href = `/download-report/${format}/${projectName}`;
         }
     
         function runAstAnalysis(projectName) {
-            window.location.href = `/ast_analysis/${projectName}`;
+            window.location.href = `/analyze/${projectName}`;
         }
     </script>
 </body>

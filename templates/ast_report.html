@@ -1,45 +1,549 @@
-{% extends "base_report.html" %}
+{% extends "base_ast_report.html" %}
 
 {% block content %}
-    <div class="stats-container">
-        <div class="stat-card">
-            <h3>Total Issues</h3>
-            <pre>{{ results | tojson(indent=2) }}</pre>
-            <div class="stat-number">{{ results|length }}</div>
+<div class="container mt-4">
+    <h2>AST Analysis Results</h2>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="text-center d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Analyzing project files...</p>
+    </div>
+
+    <!-- Error Alert -->
+    <div id="error-alert" class="alert alert-danger d-none" role="alert"></div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Analysis Summary</h5>
+                    <p class="card-text">Files Analyzed: <span id="files-analyzed">{{ files_analyzed }}</span></p>
+                    <p class="card-text">Total Issues Found: <span id="total-issues">0</span></p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="downloadReport('json')">Download JSON</button>
+                        <button class="btn btn-primary" onclick="downloadReport('csv')">Download CSV</button>
+                        <button class="btn btn-primary" onclick="downloadReport('txt')">Download TXT</button>
+                        <button class="btn btn-primary" onclick="downloadReport('html')">Download HTML</button>
+                        <button class="btn btn-secondary" onclick="refreshAnalysis()">Refresh Analysis</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    {% if results %}
-    <div class="vulnerability-list">
-        <h2>Detected Issues</h2>
-        {% for result in results %}
-        <div class="vulnerability-card severity-{{ result.severity|lower }}">
-            <h3>{{ result.issue }}</h3>
-            <div class="vulnerability-type type-{{ result.category|lower }}">{{ result.category }}</div>
-            <p><strong>Severity:</strong> {{ result.severity }}</p>
-            <p><strong>File:</strong> {{ result.file }}</p>
-            <p><strong>Line:</strong> {{ result.line }}</p>
-            <div class="code-block">{{ result.code }}</div>
-            {% if result.required_checks %}
-            <div class="validation-missing">
-                <strong>Missing Validations:</strong>
-                <ul>
-                    {% for check in result.required_checks %}
-                    <li>{{ check }}</li>
-                    {% endfor %}
-                </ul>
+    <!-- Chart Controls -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Chart Controls</h5>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="auto-refresh">
+                        <label class="form-check-label" for="auto-refresh">Auto-refresh (30s)</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="show-tooltips" checked>
+                        <label class="form-check-label" for="show-tooltips">Show Tooltips</label>
+                    </div>
+                </div>
             </div>
-            {% endif %}
-            {% if result.fix_suggestion %}
-            <div class="fix-suggestion">
-                <strong>Suggested Fix:</strong>
-                <pre>{{ result.fix_suggestion }}</pre>
-            </div>
-            {% endif %}
         </div>
-        {% endfor %}
     </div>
-    {% else %}
-    <p>No issues found.</p>
-    {% endif %}
+
+    <div class="row mb-4">
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body" style="width: 70%; height: 300px;">
+                    
+                    <h5 class="card-title">Severity Distribution</h5>
+                    <div id="severity-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+        
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body" style="width: 70%; height: 300px;">
+                    <h5 class="card-title">Category Distribution</h5>
+                    <div id="category-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="card-title">Risk Score Distribution</h5>
+                        <div id="risk-scatter-chart" style="height: 300px;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="card-title">Validation Types</h5>
+                        <div id="validation-chart" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Table Controls -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Issues Found</h5>
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="table-search" placeholder="Search issues...">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="issues-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="file" style="text-align:center;">File <i class="bi bi-sort"></i></th>
+                                    <th data-sort="line" style="text-align:center;">Line <i class="bi bi-sort"></i></th>
+                                    <th data-sort="issue" style="text-align:center;">Issue <i class="bi bi-sort"></i></th>
+                                    <th data-sort="severity" style="text-align:center;">Severity <i class="bi bi-sort"></i></th>
+                                    <th data-sort="category" style="text-align:center;">Category <i class="bi bi-sort"></i></th>
+                                    <th data-sort="risk" style="text-align:center;">Risk Score <i class="bi bi-sort"></i></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Issue Details Modal -->
+<div class="modal fade" id="issueModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Issue Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>File and Location</h6>
+                    <p id="modal-file-location" class="text-muted"></p>
+                </div>
+                <div class="mb-3">
+                    <h6>Issue Description</h6>
+                    <p id="modal-description"></p>
+                </div>
+                <div class="mb-3">
+                    <h6>Code Snippet</h6>
+                    <pre class="bg-light p-3"><code id="modal-code" class="language-rust"></code></pre>
+                </div>
+                <div class="mb-3">
+                    <h6>Context</h6>
+                    <pre class="bg-light p-3"><code id="modal-context" class="language-rust"></code></pre>
+                </div>
+                <div class="mb-3">
+                    <h6>Model Predictions</h6>
+                    <div id="modal-predictions" class="table-responsive">
+                        <table class="table table-sm">
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6>Fix Suggestion</h6>
+                    <pre class="bg-light p-3"><code id="modal-fix" class="language-rust"></code></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="copyToClipboard('modal-code')">Copy Code</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script id="results-json" type="application/json">
+    {{ results | tojson | safe }}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-rust.min.js"></script>
+<script>
+let currentProjectPath = "{{ project_subpath }}";
+let analysisResults = [];
+let autoRefreshInterval = null;
+let currentSort = { column: null, direction: 'asc' };
+const resultsRaw = document.getElementById('results-json')?.textContent;
+let results = [];
+
+if (resultsRaw) {
+    try {
+        results = JSON.parse(resultsRaw);
+    } catch (e) {
+        console.error("Failed to parse injected results:", e);
+    }
+}
+// Initialize charts with enhanced options
+let chartOptions = {
+    chart: {
+        animations: {
+            enabled: true,
+            easing: 'easeinout',
+            speed: 800,
+            animateGradually: {
+                enabled: true,
+                delay: 150
+            },
+            dynamicAnimation: {
+                enabled: true,
+                speed: 350
+            }
+        },
+        toolbar: {
+            show: true,
+            tools: {
+                download: true,
+                selection: true,
+                zoom: true,
+                pan: true,
+                reset: true
+            }
+        }
+    },
+    tooltip: {
+        enabled: true,
+        theme: 'dark',
+        style: {
+            fontSize: '12px'
+        }
+    }
+};
+
+let severityChart = new ApexCharts(document.querySelector("#severity-chart"), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'pie' },
+    series: [],
+    labels: [],
+    colors: ['#dc3545', '#ffc107', '#17a2b8', '#28a745']
+});
+
+let categoryChart = new ApexCharts(document.querySelector("#category-chart"), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'pie' },
+    series: [],
+    labels: []
+});
+
+let riskScatterChart = new ApexCharts(document.querySelector("#risk-scatter-chart"), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'scatter' },
+    series: [{
+        name: 'Risk Score',
+        data: []
+    }],
+    xaxis: {
+        title: { text: 'Line Number' }
+    },
+    yaxis: {
+        title: { text: 'Risk Score' }
+    }
+});
+
+let validationChart = new ApexCharts(document.querySelector("#validation-chart"), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'bar' },
+    series: [{
+        name: 'Count',
+        data: []
+    }],
+    xaxis: {
+        categories: []
+    }
+});
+
+// Function to show/hide loading indicator
+function toggleLoading(show) {
+    const indicator = document.getElementById('loading-indicator');
+    if (show) {
+        indicator.classList.remove('d-none');
+    } else {
+        indicator.classList.add('d-none');
+    }
+}
+
+// Function to show error message
+function showError(message) {
+    const alert = document.getElementById('error-alert');
+    alert.textContent = message;
+    alert.classList.remove('d-none');
+    setTimeout(() => alert.classList.add('d-none'), 5000);
+}
+
+// Function to load and display results
+async function loadAnalysisResults() {
+    toggleLoading(true);
+    try {
+        const response = await fetch(`/ast-analysis/${currentProjectPath}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+            return;
+        }
+        
+        analysisResults = data.results;
+        document.getElementById('total-issues').textContent = data.total_issues;
+        
+        // Update charts
+        updateCharts(data.chart_data);
+        
+        // Update table
+        updateTable(analysisResults);
+        
+        // Hide loading indicator
+        toggleLoading(false);
+        
+    } catch (error) {
+        console.error('Error loading analysis results:', error);
+        showError('Error loading analysis results: ' + error.message);
+        toggleLoading(false);
+    }
+}
+
+// Function to update charts
+function updateCharts(chartData) {
+    // Update severity chart
+    severityChart.updateOptions({
+        series: chartData.severity_chart.series,
+        labels: chartData.severity_chart.labels
+    });
+    
+    // Update category chart
+    categoryChart.updateOptions({
+        series: chartData.category_chart.series,
+        labels: chartData.category_chart.labels
+    });
+    
+    // Update risk scatter chart
+    riskScatterChart.updateOptions({
+        series: [{
+            name: 'Risk Score',
+            data: chartData.risk_scatter_chart.series[0].data
+        }]
+    });
+    
+    // Update validation chart
+    validationChart.updateOptions({
+        series: [{
+            name: 'Count',
+            data: chartData.validation_chart.series
+        }],
+        xaxis: {
+            categories: chartData.validation_chart.labels
+        }
+    });
+}
+
+// Function to update table with sorting and filtering
+function updateTable(results) {
+    const tbody = document.querySelector('#issues-table tbody');
+    const searchTerm = document.getElementById('table-search').value.toLowerCase();
+    
+    // Filter results based on search term
+    const filteredResults = results.filter(result => 
+        Object.values(result).some(value => 
+            String(value).toLowerCase().includes(searchTerm)
+        )
+    );
+    
+    // Sort results if a sort column is selected
+    if (currentSort.column) {
+        filteredResults.sort((a, b) => {
+            const aValue = a[currentSort.column];
+            const bValue = b[currentSort.column];
+            const direction = currentSort.direction === 'asc' ? 1 : -1;
+            
+            if (typeof aValue === 'number') {
+                return (aValue - bValue) * direction;
+            }
+            return String(aValue).localeCompare(String(bValue)) * direction;
+        });
+    }
+    
+    tbody.innerHTML = '';
+    
+    // Add rows for each result with proper index
+    filteredResults.forEach((result, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${result.file}</td>
+            <td style="text-align:center;">${result.line}</td>
+            <td style="text-align:center;">${result.issue}</td>
+            <td style="text-align:center;"><span class="badge bg-${getSeverityColor(result.severity)}">${result.severity}</span></td>
+            <td style="text-align:center;">${result.category}</td>
+            <td style="text-align:center;">${result.risk_score.toFixed(1)}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="showIssueDetails(${index})">Details</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Function to get severity color
+function getSeverityColor(severity) {
+    const colors = {
+        'Critical': 'danger',
+        'High': 'warning',
+        'Medium': 'info',
+        'Low': 'success'
+    };
+    return colors[severity] || 'secondary';
+}
+
+// Function to show issue details
+function showIssueDetails(index) {
+    const result = analysisResults[index];
+    if (!result) return;
+
+    // Update modal content
+    document.getElementById('modal-file-location').textContent = `${result.file}:${result.line}`;
+    document.getElementById('modal-description').textContent = result.issue;
+    document.getElementById('modal-code').textContent = result.code;
+    document.getElementById('modal-context').textContent = result.context;
+    document.getElementById('modal-fix').textContent = result.fix_suggestion || 'No fix suggestion available';
+    
+    // Update model predictions table
+    const predictionsTable = document.querySelector('#modal-predictions table tbody');
+    predictionsTable.innerHTML = '';
+    if (result.model_predictions) {
+        Object.entries(result.model_predictions).forEach(([key, value]) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${key}:</strong></td>
+                <td>${value}</td>
+            `;
+            predictionsTable.appendChild(row);
+        });
+    }
+    
+    // Highlight code in modal
+    Prism.highlightAll();
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('issueModal'));
+    modal.show();
+}
+
+// Function to copy code to clipboard
+function copyToClipboard(elementId) {
+    const codeElement = document.getElementById(elementId);
+    const textArea = document.createElement('textarea');
+    textArea.value = codeElement.textContent;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    
+    // Show feedback
+    const button = event.target;
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    setTimeout(() => button.textContent = originalText, 2000);
+}
+
+// Function to download report
+function downloadReport(format) {
+    window.location.href = `/download-ast-report/${format}/${currentProjectPath}`;
+}
+
+// Function to refresh analysis
+function refreshAnalysis() {
+    loadAnalysisResults();
+}
+
+// Function to handle table sorting
+function handleSort(column) {
+    if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+    }
+    updateTable(analysisResults);
+}
+
+// Function to handle table search
+function handleSearch() {
+    updateTable(analysisResults);
+}
+
+// Function to toggle auto-refresh
+function toggleAutoRefresh() {
+    const checkbox = document.getElementById('auto-refresh');
+    if (checkbox.checked) {
+        autoRefreshInterval = setInterval(loadAnalysisResults, 30000);
+    } else {
+        if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+    }
+}
+
+// Function to toggle tooltips
+function toggleTooltips() {
+    const checkbox = document.getElementById('show-tooltips');
+    const tooltipEnabled = checkbox.checked;
+    
+    [severityChart, categoryChart, riskScatterChart, validationChart].forEach(chart => {
+        chart.updateOptions({
+            tooltip: {
+                enabled: tooltipEnabled
+            }
+        });
+    });
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize charts
+    severityChart.render();
+    categoryChart.render();
+    riskScatterChart.render();
+    validationChart.render();
+    
+    // Set up event listeners
+    document.getElementById('table-search').addEventListener('input', handleSearch);
+    document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+    document.getElementById('show-tooltips').addEventListener('change', toggleTooltips);
+    
+    // Add sort handlers to table headers
+    document.querySelectorAll('#issues-table th[data-sort]').forEach(header => {
+        header.addEventListener('click', () => handleSort(header.dataset.sort));
+    });
+    
+    // Load initial results
+    loadAnalysisResults();
+
+    // Update the table with the results
+    updateTable(results);
+});
+</script>
+
 {% endblock %}
