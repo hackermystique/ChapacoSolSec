@@ -1,17 +1,31 @@
-Flask
+# Core dependencies
 GitPython
+regex
+toml
+pandas
+numpy
+
+# Machine Learning
+scikit-learn
+xgboost
+lightgbm
+imbalanced-learn
+joblib
+
+# Web Framework
+Flask
+Werkzeug
+
+# Code Analysis
+tree_sitter==0.20.1
+
+# Utilities
+python-dotenv
+requests
+tqdm
+
+# Development & Testing
+pytest
 black
 flake8
-imblearn
-joblib
-lightgbm
 mypy
-numpy
-pandas
-pytest
-regex
-scikit-learn
-scipy
-toml
-tree_sitter==0.20.1
-xgboost

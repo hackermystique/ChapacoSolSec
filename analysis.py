@@ -3,7 +3,7 @@ ChapacoSolSec - Solana Smart Contract Security Analysis Tool
 
 This module provides core functionality for analyzing Solana smart contracts
 for security vulnerabilities and best practices. It uses pattern matching
-and AST analysis to identify potential issues.
+and Security analysis to identify potential issues.
 """
 
 import git
@@ -15,15 +15,70 @@ import pandas as pd
 import io
 from typing import List, Dict, Pattern, Optional, Union
 from collections import Counter
-from flask import Response
+from flask import Response, send_file
 from tree_sitter import Language, Parser
 import toml
+import subprocess
+from pathlib import Path
+import tempfile
+import git
+from logger_config import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logger = setup_logger('analysis', 'logs/analysis.log')
+
+def setup_tree_sitter():
+    """Set up tree-sitter parser for Rust code analysis."""
+    try:
+        # Get the absolute path of the current directory
+        current_dir = os.path.abspath(os.path.dirname(__file__))
+        
+        # Define paths using absolute paths
+        build_dir = os.path.join(current_dir, 'build')
+        lib_path = os.path.join(build_dir, 'my-languages.so')
+        vendor_path = os.path.join(current_dir, 'vendor', 'tree-sitter-rust')
+        
+        # Create build directory if it doesn't exist
+        os.makedirs(build_dir, exist_ok=True)
+        
+        # Create vendor directory if it doesn't exist
+        os.makedirs(vendor_path, exist_ok=True)
+        
+        # Clone tree-sitter-rust if it doesn't exist
+        if not os.path.exists(os.path.join(vendor_path, 'src')):
+            logger.info("Cloning tree-sitter-rust...")
+            subprocess.run(['git', 'clone', 'https://github.com/tree-sitter/tree-sitter-rust.git', vendor_path], check=True)
+        
+        # Build the library if it doesn't exist
+        if not os.path.exists(lib_path):
+            logger.info("Building tree-sitter library...")
+            Language.build_library(lib_path, [vendor_path])
+        
+        # Initialize the language
+        try:
+            # Ensure the library exists and is readable
+            if not os.path.exists(lib_path):
+                raise FileNotFoundError(f"Tree-sitter library not found at {lib_path}")
+            
+            # Initialize language with the library path
+            rust_language = Language(lib_path, 'rust')
+            if not rust_language:
+                raise RuntimeError("Failed to create language object")
+                
+            # Create and configure parser
+            parser = Parser()
+            parser.set_language(rust_language)
+            
+            logger.info("Tree-sitter parser initialized successfully")
+            return parser, rust_language
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize language: {str(e)}")
+            return None, None
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize tree-sitter: {str(e)}")
+        return None, None
+
 def convert_to_markdown(data: List[Dict], base_filename: str) -> Union[Response, tuple[str, int]]:
     """Convert analysis results to a formatted Markdown document.
 
@@ -111,7 +166,7 @@ def convert_to_html(data, base_filename):
     if not data:
         return "No data to export", 400
     output.write(f"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{base_filename}</title></head><body>")
-    output.write(f"<h1>AST Analysis Report: {base_filename}</h1>")
+    output.write(f"<h1>Security Analysis Report: {base_filename}</h1>")
 
     for idx, item in enumerate(data, 1):
         output.write(f"<h2>Issue {idx}</h2><ul>")
@@ -127,6 +182,7 @@ def convert_to_html(data, base_filename):
         mimetype="text/html",
         headers={"Content-Disposition": f"attachment;filename={base_filename}.html"}
     )
+
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
 
@@ -261,7 +317,40 @@ VULNERABILITY_PATTERNS = {
         {"id": "VULN239b", "severity": "Critical", "regex": re.compile(r"\baccounts\[\d+\]\.data.borrow_mut\(\)"),  "description": "Mutable borrowing of account data without proper access control may lead to race conditions (Raw Solana Rust)."},
         {"id": "VULN240a", "severity": "High", "regex": re.compile(r"\bctx.accounts.\w+\.lamports\(\)"),  "description": "Direct access to lamports without validation may lead to security risks (Anchor)."},
         {"id": "VULN240b", "severity": "High", "regex": re.compile(r"\baccounts\[\d+\]\.lamports\(\)"),  "description": "Direct access to lamports without validation may lead to security risks (Raw Solana Rust)."},
+    ],
+    "Anchor": [
+        # Signer Authorization
+        {"id": "ANCH001", "severity": "Critical", "regex": re.compile(r"AccountInfo<'info>"), "description": "Missing signer verification - Using raw AccountInfo without Signer constraint"},
         
+        # Account Data Matching
+        {"id": "ANCH002", "severity": "Critical", "regex": re.compile(r"SplTokenAccount::unpack\(&ctx\.accounts\.\w+\.data\.borrow\(\)\)"), "description": "Insecure account data matching - Unpacking token account without proper validation"},
+        
+        # Owner Checks
+        {"id": "ANCH003", "severity": "Critical", "regex": re.compile(r"if\s+ctx\.accounts\.\w+\.key\s*!=\s*&token\.owner"), "description": "Insecure owner check - Manual owner verification instead of using Account<'info> constraint"},
+        
+        # Type Cosplay
+        {"id": "ANCH004", "severity": "Critical", "regex": re.compile(r"try_from_slice\(&ctx\.accounts\.\w+\.data\.borrow\(\)\)"), "description": "Type cosplay vulnerability - Unchecked deserialization of account data"},
+        
+        # Initialization
+        {"id": "ANCH005", "severity": "Critical", "regex": re.compile(r"try_from_slice\(&ctx\.accounts\.\w+\.data\.borrow\(\)\)(?!.*is_initialized)"), "description": "Missing initialization check - Deserializing account without checking if it's initialized"},
+        
+        # Arbitrary CPI
+        {"id": "ANCH006", "severity": "Critical", "regex": re.compile(r"invoke\(&ctx\.accounts\.\w+\.to_account_info\(\)"), "description": "Arbitrary CPI vulnerability - Invoking program without verifying its ID"},
+        
+        # Duplicate Mutable Accounts
+        {"id": "ANCH007", "severity": "Critical", "regex": re.compile(r"\.data\.borrow_mut\(\)"), "description": "Duplicate mutable account access - Multiple mutable borrows of same account data"},
+        
+        # Bump Seed Canonicalization
+        {"id": "ANCH008", "severity": "Critical", "regex": re.compile(r"Pubkey::find_program_address\([^)]*\)(?!.*validate)"), "description": "Missing bump seed validation - PDA derivation without bump seed verification"},
+        
+        # PDA Sharing
+        {"id": "ANCH009", "severity": "Critical", "regex": re.compile(r"invoke_signed\([^)]*\)(?!.*with_signer)"), "description": "Insecure PDA sharing - Using PDA as signer without proper validation"},
+        
+        # Closing Accounts
+        {"id": "ANCH010", "severity": "Critical", "regex": re.compile(r"ctx\.accounts\.\w+\.lamports\(\)\s*=\s*0"), "description": "Insecure account closing - Setting lamports to 0 without proper validation"},
+        
+        # Sysvar Address Checking
+        {"id": "ANCH011", "severity": "Critical", "regex": re.compile(r"sysvar::\w+::\w+::get\(\)"), "description": "Missing sysvar address validation - Direct sysvar access without address verification"}
     ]
 }
 
@@ -290,7 +379,7 @@ def clone_repository(repo_url: str, clone_path: str) -> Optional[str]:
             repo_name = repo_name[:-4]
             
         target_repo_path = os.path.join(clone_path, repo_name)
-        logging.info(f"Processing repository: {repo_name}")
+        logger.info(f"Processing repository: {repo_name}")
 
         # Ensure the parent directory exists
         if not os.path.exists(clone_path):
@@ -301,25 +390,25 @@ def clone_repository(repo_url: str, clone_path: str) -> Optional[str]:
                 repo = git.Repo(target_repo_path)
                 origin = repo.remotes.origin
                 origin.pull()
-                logging.info(f"Repository at {target_repo_path} updated successfully")
+                logger.info(f"Repository at {target_repo_path} updated successfully")
                 return target_repo_path
             except git.GitCommandError as e:
-                logging.error(f"Git error updating repository: {e}")
+                logger.error(f"Git error updating repository: {e}")
                 return None
             except Exception as e:
-                logging.error(f"Unexpected error updating repository: {e}")
+                logger.error(f"Unexpected error updating repository: {e}")
                 return None
 
         # Clone new repository
         git.Repo.clone_from(repo_url, target_repo_path)
-        logging.info(f"Repository cloned successfully to {target_repo_path}")
+        logger.info(f"Repository cloned successfully to {target_repo_path}")
         return target_repo_path
         
     except git.GitCommandError as e:
-        logging.error(f"Git error cloning repository: {e}")
+        logger.error(f"Git error cloning repository: {e}")
         return None
     except Exception as e:
-        logging.error(f"Unexpected error in repository operation: {e}")
+        logger.error(f"Unexpected error in repository operation: {e}")
         return None
     
     
@@ -347,9 +436,9 @@ def find_rust_files(base_dir: str) -> List[str]:
             if file.endswith('.rs') and not file.startswith('.'):
                 full_path = os.path.join(root, file)
                 rust_files.append(full_path)
-                logging.debug(f"Found Rust file: {full_path}")
+                logger.debug(f"Found Rust file: {full_path}")
                 
-    logging.info(f"Found {len(rust_files)} Rust files in {base_dir}")
+    logger.info(f"Found {len(rust_files)} Rust files in {base_dir}")
     return rust_files
 
 
@@ -369,7 +458,7 @@ def is_valid_rust_project(base_dir: str) -> bool:
     """
     cargo_path = os.path.join(base_dir, "Cargo.toml")
     if not os.path.exists(cargo_path):
-        logging.warning(f"No Cargo.toml found in {base_dir}")
+        logger.warning(f"No Cargo.toml found in {base_dir}")
         return False
 
     try:
@@ -377,27 +466,27 @@ def is_valid_rust_project(base_dir: str) -> bool:
         
         # Check for required sections
         if 'package' not in cargo_toml:
-            logging.warning(f"Missing [package] section in {cargo_path}")
+            logger.warning(f"Missing [package] section in {cargo_path}")
             return False
             
         if 'dependencies' not in cargo_toml:
-            logging.warning(f"Missing [dependencies] section in {cargo_path}")
+            logger.warning(f"Missing [dependencies] section in {cargo_path}")
             return False
             
         # Check for src directory
         src_dir = os.path.join(base_dir, 'src')
         if not os.path.exists(src_dir):
-            logging.warning(f"No src directory found in {base_dir}")
+            logger.warning(f"No src directory found in {base_dir}")
             return False
             
-        logging.info(f"Found valid Rust project in {base_dir}")
+        logger.info(f"Found valid Rust project in {base_dir}")
         return True
         
     except toml.TomlDecodeError as e:
-        logging.error(f"Invalid TOML in {cargo_path}: {e}")
+        logger.error(f"Invalid TOML in {cargo_path}: {e}")
         return False
     except Exception as e:
-        logging.error(f"Unexpected error validating Rust project: {e}")
+        logger.error(f"Unexpected error validating Rust project: {e}")
         return False
 
 def browse_and_select_valid_directory(base_dir: str) -> str:
@@ -406,7 +495,7 @@ def browse_and_select_valid_directory(base_dir: str) -> str:
         print(f"Current directory: {base_dir}")
         subdirs = [d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))]
         if not subdirs:
-            logging.error("No subdirectories available to browse. Exiting.")
+            logger.error("No subdirectories available to browse. Exiting.")
             exit(1)
         
         print("Available subdirectories:")
@@ -439,19 +528,21 @@ def scan_file(file_path: str, analysis_depth="Intermediate") -> List[Dict]:
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
+        # Get selected patterns based on depth
         selected_patterns = []
         if analysis_depth in VULNERABILITY_PATTERNS:
             for level in ["Basic", "Intermediate", "Advanced"]:
                 selected_patterns.extend(VULNERABILITY_PATTERNS.get(level, []))
                 if level == analysis_depth:
                     break
+            # Add Anchor patterns
+            selected_patterns.extend(VULNERABILITY_PATTERNS.get("Anchor", []))
 
         for i, line in enumerate(lines, start=1):
             clean_line = remove_inline_comments(line)
             for vuln in selected_patterns:
                 if vuln["regex"].search(clean_line):
                     findings.append({
-                        # "file": file_path,
                         "file": os.path.relpath(file_path, os.getcwd()),  # Relative path from current directory
                         "line": i,
                         "id": vuln["id"],
@@ -460,7 +551,7 @@ def scan_file(file_path: str, analysis_depth="Intermediate") -> List[Dict]:
                         "code": clean_line.strip(),
                     })
     except Exception as e:
-        logging.error(f"Error scanning {file_path}: {e}")
+        logger.error(f"Error scanning {file_path}: {e}")
     
     return findings
 
@@ -475,6 +566,17 @@ def analyze_project(base_dir: str, analysis_depth="Intermediate") -> List[Dict]:
     """Find Rust files and scan them for vulnerabilities with depth control."""
     base_dir = browse_and_select_valid_directory(base_dir)  # Ensure valid project directory
     rust_files = find_rust_files(base_dir)
+    
+    # Always include Anchor patterns regardless of depth
+    selected_patterns = []
+    if analysis_depth in VULNERABILITY_PATTERNS:
+        for level in ["Basic", "Intermediate", "Advanced"]:
+            selected_patterns.extend(VULNERABILITY_PATTERNS.get(level, []))
+            if level == analysis_depth:
+                break
+        # Add Anchor patterns
+        selected_patterns.extend(VULNERABILITY_PATTERNS.get("Anchor", []))
+    
     return analyze_project_multithreaded(rust_files, analysis_depth)
 
 def generate_report(findings):
@@ -487,51 +589,52 @@ def generate_report(findings):
 def save_results_csv(findings: List[Dict], filename="scan_results.csv"):
     """Save scan results to a CSV file."""
     if not findings:
-        logging.info("No vulnerabilities found.")
+        logger.info("No vulnerabilities found.")
         return
 
     df = pd.DataFrame(findings)
     df.to_csv(filename, index=False)
-    logging.info(f"[+] Results saved in {filename}")
+    logger.info(f"[+] Results saved in {filename}")
 
 def save_results_json(findings: List[Dict], filename="scan_results.json"):
     """Save scan results to a JSON file."""
     if not findings:
-        logging.info("No vulnerabilities found.")
+        logger.info("No vulnerabilities found.")
         return
 
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(findings, f, indent=4)
-    logging.info(f"[+] Results saved in {filename}")
+    logger.info(f"[+] Results saved in {filename}")
 
 def save_results_markdown(findings: List[Dict], filename="scan_results.md"):
     """Save scan results to a Markdown file."""
     if not findings:
-        logging.info("No vulnerabilities found.")
+        logger.info("No vulnerabilities found.")
         return
 
     with open(filename, "w", encoding="utf-8") as f:
         f.write("# Scan Results\n\n")
         for finding in findings:
             f.write(f"- **{finding['id']}** ({finding['severity']}): {finding['description']} - `{finding['code']}`\n")
-    logging.info(f"[+] Markdown report saved in {filename}")
+    logger.info(f"[+] Markdown report saved in {filename}")
 
 def save_results_html(findings: List[Dict], filename="scan_results.html"):
     """Save scan results to an interactive HTML file."""
     if not findings:
-        logging.info("No vulnerabilities found.")
+        logger.info("No vulnerabilities found.")
         return
 
     df = pd.DataFrame(findings)
     html_content = df.to_html(index=False, escape=False)
     with open(filename, "w", encoding="utf-8") as f:
         f.write(f"<html><head><title>Rust Security Report</title></head><body>{html_content}</body></html>")
-    logging.info(f"[+] HTML report saved in {filename}")
+    logger.info(f"[+] HTML report saved in {filename}")
 
 def main():
     """Run the static analyzer on a given directory."""
-    # base_dir = "solana-security-audit/"  # Change this to your audit directory
-    base_dir = os.path.abspath(os.path.dirname(__file__))
+    
+    base_dir = os.path.abspath(os.path.dirname(__file__)).join("json_reports")
+    print(base_dir)
     analysis_depth = "Intermediate"  # Default depth level
     findings = analyze_project(base_dir, analysis_depth)
 

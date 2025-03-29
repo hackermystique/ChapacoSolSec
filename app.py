@@ -1,11 +1,18 @@
-from flask import Flask, request, render_template, redirect, url_for, send_file, jsonify
+from flask import Flask, request, render_template, redirect, url_for, send_file, jsonify, Response, abort
 import os
 import json
 import configparser
+import shutil
 from collections import defaultdict
 from analysis import clone_repository, is_valid_rust_project, save_results_csv, save_results_json, save_results_markdown, save_results_html
 from analysis import analyze_project as analyze_code
+from analysis import convert_to_markdown, convert_to_csv, convert_to_txt, convert_to_html
 from ast_analysis import run_ast_analysis as analyze_ast
+import logging
+from typing import Dict, List
+from logger_config import setup_logger
+
+logger = setup_logger('app', 'logs/app.log')
 
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -188,7 +195,220 @@ def prepare_chart_data(results):
         }
     }
 
+def convert_to_markdown_ast(results: Dict[str, List[Dict]], files_analyzed: int) -> str:
+    """Convert AST analysis results to markdown format."""
+    if not results:
+        return "No issues found in the analysis."
+    
+    markdown = f"# AST Analysis Report\n\n"
+    markdown += f"**Files Analyzed:** {files_analyzed}\n"
+    markdown += f"**Total Issues Found:** {sum(len(issues) for issues in results.values())}\n\n"
+    
+    # Group issues by severity
+    severity_groups = {}
+    for file_path, issues in results.items():
+        for issue in issues:
+            severity = issue['severity']
+            if severity not in severity_groups:
+                severity_groups[severity] = []
+            severity_groups[severity].append((file_path, issue))
+    
+    # Sort severities (Critical -> High -> Medium -> Low)
+    severity_order = ['Critical', 'High', 'Medium', 'Low']
+    for severity in severity_order:
+        if severity in severity_groups:
+            markdown += f"## {severity} Severity Issues\n\n"
+            for file_path, issue in severity_groups[severity]:
+                markdown += f"### {file_path}:{issue['line']}\n\n"
+                markdown += f"**Issue:** {issue['issue']}\n"
+                markdown += f"**Category:** {issue['category']}\n"
+                markdown += f"**Risk Score:** {issue['risk_score']:.1f}\n\n"
+                markdown += "**Code:**\n```rust\n"
+                markdown += f"{issue['code']}\n"
+                markdown += "```\n\n"
+                markdown += "**Context:**\n```rust\n"
+                markdown += f"{issue['context']}\n"
+                markdown += "```\n\n"
+                if issue.get('fix_suggestion'):
+                    markdown += "**Fix Suggestion:**\n```rust\n"
+                    markdown += f"{issue['fix_suggestion']}\n"
+                    markdown += "```\n\n"
+                if issue.get('model_predictions'):
+                    markdown += "**Model Predictions:**\n"
+                    for key, value in issue['model_predictions'].items():
+                        markdown += f"- {key}: {value}\n"
+                    markdown += "\n"
+                markdown += "---\n\n"
+    
+    return markdown
 
+def convert_to_csv_ast(results: Dict[str, List[Dict]], files_analyzed: int) -> str:
+    """Convert AST analysis results to CSV format."""
+    if not results:
+        return "No issues found in the analysis."
+    
+    # Create CSV header
+    csv = "File,Line,Issue,Severity,Category,Risk Score,Code,Context,Fix Suggestion,Model Predictions\n"
+    
+    # Add each issue as a row
+    for file_path, issues in results.items():
+        for issue in issues:
+            # Escape special characters in fields
+            code = issue['code'].replace('"', '""')
+            context = issue['context'].replace('"', '""')
+            fix_suggestion = issue.get('fix_suggestion', '').replace('"', '""')
+            model_predictions = str(issue.get('model_predictions', '')).replace('"', '""')
+            
+            csv += f'"{file_path}",{issue["line"]},"{issue["issue"]}","{issue["severity"]}",'
+            csv += f'"{issue["category"]}",{issue["risk_score"]:.1f},"{code}","{context}",'
+            csv += f'"{fix_suggestion}","{model_predictions}"\n'
+    
+    return csv
+
+def convert_to_txt_ast(results: Dict[str, List[Dict]], files_analyzed: int) -> str:
+    """Convert AST analysis results to plain text format."""
+    if not results:
+        return "No issues found in the analysis."
+    
+    text = "AST Analysis Report\n"
+    text += "=" * 50 + "\n\n"
+    text += f"Files Analyzed: {files_analyzed}\n"
+    text += f"Total Issues Found: {sum(len(issues) for issues in results.values())}\n\n"
+    
+    # Group issues by severity
+    severity_groups = {}
+    for file_path, issues in results.items():
+        for issue in issues:
+            severity = issue['severity']
+            if severity not in severity_groups:
+                severity_groups[severity] = []
+            severity_groups[severity].append((file_path, issue))
+    
+    # Sort severities (Critical -> High -> Medium -> Low)
+    severity_order = ['Critical', 'High', 'Medium', 'Low']
+    for severity in severity_order:
+        if severity in severity_groups:
+            text += f"\n{severity} Severity Issues\n"
+            text += "-" * 50 + "\n\n"
+            for file_path, issue in severity_groups[severity]:
+                text += f"File: {file_path}:{issue['line']}\n"
+                text += f"Issue: {issue['issue']}\n"
+                text += f"Category: {issue['category']}\n"
+                text += f"Risk Score: {issue['risk_score']:.1f}\n\n"
+                text += "Code:\n"
+                text += "-" * 20 + "\n"
+                text += f"{issue['code']}\n"
+                text += "-" * 20 + "\n\n"
+                text += "Context:\n"
+                text += "-" * 20 + "\n"
+                text += f"{issue['context']}\n"
+                text += "-" * 20 + "\n\n"
+                if issue.get('fix_suggestion'):
+                    text += "Fix Suggestion:\n"
+                    text += "-" * 20 + "\n"
+                    text += f"{issue['fix_suggestion']}\n"
+                    text += "-" * 20 + "\n\n"
+                if issue.get('model_predictions'):
+                    text += "Model Predictions:\n"
+                    for key, value in issue['model_predictions'].items():
+                        text += f"- {key}: {value}\n"
+                    text += "\n"
+                text += "=" * 50 + "\n\n"
+    
+    return text
+
+def convert_to_html_ast(results: Dict[str, List[Dict]], files_analyzed: int) -> str:
+    """Convert AST analysis results to HTML format."""
+    if not results:
+        return "<html><body><h1>AST Analysis Report</h1><p>No issues found in the analysis.</p></body></html>"
+    
+    html = """<!DOCTYPE html>
+                <html>
+                <head>
+                    <title>AST Analysis Report</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                        .header {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
+                        .issue {{ margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
+                        .critical {{ border-left: 5px solid #dc3545; }}
+                        .high {{ border-left: 5px solid #fd7e14; }}
+                        .medium {{ border-left: 5px solid #ffc107; }}
+                        .low {{ border-left: 5px solid #28a745; }}
+                        pre {{ background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }}
+                        code {{ font-family: Consolas, monospace; }}
+                        .severity-section {{ margin: 30px 0; }}
+                        .severity-header {{ background: #e9ecef; padding: 10px; border-radius: 5px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>AST Analysis Report</h1>
+                        <p>Files Analyzed: {files_analyzed}</p>
+                        <p>Total Issues Found: {total_issues}</p>
+                    </div>
+                """.format(
+                    files_analyzed=files_analyzed,
+                    total_issues=sum(len(issues) for issues in results.values())
+                )
+    
+    # Group issues by severity
+    severity_groups = {}
+    for file_path, issues in results.items():
+        for issue in issues:
+            severity = issue['severity']
+            if severity not in severity_groups:
+                severity_groups[severity] = []
+            severity_groups[severity].append((file_path, issue))
+    
+    # Sort severities (Critical -> High -> Medium -> Low)
+    severity_order = ['Critical', 'High', 'Medium', 'Low']
+    for severity in severity_order:
+        if severity in severity_groups:
+            html += f"""
+    <div class="severity-section">
+        <div class="severity-header">
+            <h2>{severity} Severity Issues</h2>
+        </div>"""
+            
+            for file_path, issue in severity_groups[severity]:
+                severity_class = issue['severity'].lower()
+                html += f"""
+        <div class="issue {severity_class}">
+            <h3>{file_path}:{issue['line']}</h3>
+            <p><strong>Issue:</strong> {issue['issue']}</p>
+            <p><strong>Category:</strong> {issue['category']}</p>
+            <p><strong>Risk Score:</strong> {issue['risk_score']:.1f}</p>
+            
+            <h4>Code:</h4>
+            <pre><code>{issue['code']}</code></pre>
+            
+            <h4>Context:</h4>
+            <pre><code>{issue['context']}</code></pre>"""
+                
+                if issue.get('fix_suggestion'):
+                    html += f"""
+            <h4>Fix Suggestion:</h4>
+            <pre><code>{issue['fix_suggestion']}</code></pre>"""
+                
+                if issue.get('model_predictions'):
+                    html += """
+            <h4>Model Predictions:</h4>
+            <ul>"""
+                    for key, value in issue['model_predictions'].items():
+                        html += f"<li><strong>{key}:</strong> {value}</li>"
+                    html += "</ul>"
+                
+                html += """
+        </div>"""
+            
+            html += """
+    </div>"""
+    
+    html += """
+</body>
+</html>"""
+    
+    return html
 
 @app.route("/", methods=["GET", "POST"])
 def upload_project():
@@ -334,95 +554,122 @@ def analyze_project(project_subpath):
 
 @app.route("/ast-analysis/<path:project_subpath>", methods=["GET", "POST"])
 def run_ast_analysis(project_subpath):
-    project_path = os.path.join(PROJECTS_DIR, project_subpath)
-    if not os.path.exists(project_path):
-        return f"Path {project_subpath} does not exist", 404
-    header1 = "AST - "
-    # Generate safe filename for the report
-    safe_name = project_subpath.replace('/', '_')
-    base_filename = f"{safe_name}_ast_report"
-    json_path = os.path.join(REPORTS_DIR, f"{base_filename}.json")
-    paname = os.path.join("projects", project_subpath, f"{base_filename}.json")
-    path_name = os.path.relpath(paname)
-    # Run the AST analyzer and save results
+    """Handle AST analysis requests."""
     try:
-        results = analyze_ast(project_path)
+        # Get full project path
+        project_path = os.path.join(PROJECTS_DIR, project_subpath)
+        if not os.path.exists(project_path):
+            logger.error(f"Project path not found: {project_path}")
+            if request.method == "POST":
+                return jsonify({"error": f"Path {project_subpath} does not exist"}), 404
+            return render_template("error.html", error=f"Path {project_subpath} does not exist")
+
+        # Check if the path is a directory
+        if not os.path.isdir(project_path):
+            logger.error(f"Path is not a directory: {project_path}")
+            if request.method == "POST":
+                return jsonify({"error": f"Path {project_subpath} is not a directory"}), 400
+            return render_template("error.html", error=f"Path {project_subpath} is not a directory")
+
+        # Check for Rust files
+        rust_files = []
+        for root, _, files in os.walk(project_path):
+            for file in files:
+                if file.endswith('.rs'):
+                    file_path = os.path.join(root, file)
+                    if os.path.isfile(file_path):
+                        rust_files.append(file_path)
+
+        if not rust_files:
+            logger.warning(f"No Rust files found in {project_path}")
+            if request.method == "POST":
+                return jsonify({"error": "No Rust files found in the project"}), 404
+            return render_template("error.html", error="No Rust files found in the project")
+
+        # Generate safe filename for the report
+        safe_name = project_subpath.replace('/', '_')
+        base_filename = f"{safe_name}_ast_report"
+        json_path = os.path.join(REPORTS_DIR, f"{base_filename}.json")
+        
+        # Run AST analysis
+        logger.info(f"Running AST analysis on {project_path}")
+        try:
+            results, files_analyzed = analyze_ast(project_path)
+            os.makedirs(REPORTS_DIR, exist_ok=True)
+            with open(json_path, 'w') as f:
+                json.dump(results, f, indent=2)
+        except Exception as e:
+            logger.error(f"AST analysis failed: {e}")
+            if request.method == "POST":
+                return jsonify({"error": f"Failed to generate AST report: {str(e)}"}), 500
+            return render_template("error.html", error=f"Failed to generate AST report: {str(e)}")
+        
+        if not results:
+            logger.warning(f"No results found for {project_path}")
+            if request.method == "POST":
+                return jsonify({"error": "No results found"}), 404
+            return render_template("ast_report.html", 
+                                project_subpath=project_subpath,
+                                results=[],
+                                chart_data=prepare_chart_data([]))
+            
+        # Save results to JSON file
         os.makedirs(REPORTS_DIR, exist_ok=True)
-        with open(json_path, 'w') as f:
-            json.dump(results, f, indent=2)
+        try:
+            with open(json_path, 'w') as f:
+                json.dump(results, f, indent=2)
+            logger.info(f"AST analysis results saved to {json_path}")
+        except Exception as e:
+            logger.error(f"Failed to save results to {json_path}: {e}")
+            if request.method == "POST":
+                return jsonify({"error": f"Failed to save results: {str(e)}"}), 500
+            return render_template("error.html", error=f"Failed to save results: {str(e)}")
+
+        # Convert results to a format suitable for the frontend
+        formatted_results = []
+        for file_path, file_results in results.items():
+            for result in file_results:
+                formatted_results.append({
+                    'file': file_path,
+                    'line': result.get('line', 0),
+                    'issue': result.get('issue', ''),
+                    'severity': result.get('severity', 'Unknown'),
+                    'category': result.get('category', 'Unknown'),
+                    'code': result.get('code', ''),
+                    'context': result.get('context', ''),
+                    'risk_score': result.get('risk_score', 0),
+                    'fix_suggestion': result.get('fix_suggestion'),
+                    'model_predictions': result.get('model_predictions', {})
+                })
+
+        # Prepare chart data for visualization
+        chart_data = prepare_chart_data(formatted_results)
+
+        # If it's a POST request, return JSON data
+        if request.method == "POST" or request.headers.get("Accept") == "application/json":
+            return jsonify({
+                "status": "success",
+                "results": formatted_results,
+                "total_issues": len(formatted_results),
+                "files_analyzed": files_analyzed,
+                "report_path": json_path,
+                "chart_data": chart_data
+            })
+
+        # For GET requests, render the template
+        return render_template(
+            "ast_report.html",
+            project_subpath=project_subpath,
+            results=formatted_results,
+            chart_data=chart_data,
+            files_analyzed=files_analyzed
+        )
+
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Failed to generate AST report: {str(e)}"}), 500
-    
-    # Calculate statistics
-    total_issues = 0
-    critical_issues = 0
-    files_analyzed = 0
-    
-    if results:
-        files_analyzed = len(results.keys())
-        for file_path, file_issues in results.items():
-            for issue in file_issues:
-                if isinstance(issue, dict) and 'error' not in issue:
-                    total_issues += 1
-                    if issue.get('severity', '').lower() == 'critical':
-                        critical_issues += 1
-                    
-                    # Ensure all required fields are present
-                    if 'category' not in issue:
-                        if 'unsafe' in issue.get('issue', '').lower():
-                            issue['category'] = 'unsafe'
-                        elif any(word in issue.get('issue', '').lower() for word in ['deserialize', 'validation']):
-                            issue['category'] = 'validation'
-                        elif any(word in issue.get('issue', '').lower() for word in ['account', 'signer']):
-                            issue['category'] = 'access'
-                        elif 'cpi' in issue.get('issue', '').lower():
-                            issue['category'] = 'cpi'
-                        else:
-                            issue['category'] = 'other'
-                    
-                    # Ensure code snippet is present and formatted
-                    if 'code' in issue:
-                        code_lines = issue['code'].split('\n')
-                        if 'line' in issue and isinstance(issue['line'], int):
-                            line_num = issue['line'] - 1
-                            if 0 <= line_num < len(code_lines):
-                                issue['code'] = code_lines[line_num].strip()
-                        else:
-                            issue['code'] = code_lines[0].strip()
-                    
-                    # Add missing validation info if not present
-                    if 'missing_validation' not in issue and issue['category'] in ['validation', 'access', 'cpi']:
-                        issue['missing_validation'] = {
-                            'validation': 'Missing require! or assert! macro for validation',
-                            'access': 'Missing owner or signer verification',
-                            'cpi': 'Missing program ID verification'
-                        }[issue['category']]
-                    
-                    # Ensure severity is present
-                    if 'severity' not in issue:
-                        issue['severity'] = 'High'  # Default severity
-    
-    # Prepare chart data
-    chart_data = prepare_chart_data(results)
-    
-    # Flatten real issues for rendering (avoid false positives)
-    flat_results = []
-    if results:
-        for file_path, file_issues in results.items():
-            for issue in file_issues:
-                if isinstance(issue, dict) and 'error' not in issue:
-                    flat_results.append(issue)
-
-    chart_data = prepare_chart_data(flat_results)
-
-    return render_template("ast_report.html",
-                        results=flat_results,
-                        project_name=base_filename,
-                        chart_data=chart_data,
-                        total_issues=total_issues,
-                        critical_issues=critical_issues,
-                        files_analyzed=files_analyzed)
-    
+        logger.error(f"Error in AST analysis: {e}")
+        if request.method == "POST":
+            return jsonify({"error": str(e)}), 500
+        return render_template("error.html", error=str(e))
 
 @app.route("/download-report/<format>/<path:project_name>", methods=["GET"])
 def download_report(format, project_name):
@@ -470,64 +717,71 @@ def download_report(format, project_name):
 
 @app.route("/download-ast-report/<format>/<path:project_name>", methods=["GET"])
 def download_ast_report(format, project_name):
-
-    # json_path = os.path.join(REPORTS_DIR, f"{project_name}.json")
-    # paname = os.path.join("projects", f"{project_name}.json")
-    # path_name = os.path.relpath(paname)
-
-    # safe_name = project_name.replace('/', '_')
-    # base_filename = f"{project_name}_ast_report"
-    json_path = os.path.join(REPORTS_DIR, f"{project_name}.json")
-    paname = os.path.join("projects", f"{project_name}.json")
-    path_name = os.path.relpath(paname)
-    logging.debug(f"json_path{json_path}")
-    logging.debug(f"paname {paname}")
-    logging.debug(f"path_name {path_name}")
-
-    if not os.path.exists(json_path):
-        return (
-            f"AST report not found for {project_name}. "
-            "Please run the analysis first.",
-            404
+    """Download AST analysis report in specified format."""
+    try:
+        # Get the project path
+        project_path = os.path.join("projects", project_name)
+        if not os.path.exists(project_path):
+            return "Project not found", 404
+        
+        # Run AST analysis
+        results, files_analyzed = analyze_ast(project_path)
+        
+        # Convert results based on format
+        if format == "json":
+            content = json.dumps(results, indent=2)
+            content_type = "application/json"
+        elif format == "csv":
+            content = convert_to_csv_ast(results, files_analyzed)
+            content_type = "text/csv"
+        elif format == "txt":
+            content = convert_to_txt_ast(results, files_analyzed)
+            content_type = "text/plain"
+        elif format == "md":
+            content = convert_to_markdown_ast(results, files_analyzed)
+            content_type = "text/markdown"
+        elif format == "html":
+            content = convert_to_html_ast(results, files_analyzed)
+            content_type = "text/html"
+        else:
+            return "Unsupported format", 400
+        
+        # Generate safe filename
+        safe_name = project_name.replace('/', '_')
+        filename = f"{safe_name}_ast_report.{format}"
+        
+        return Response(
+            content,
+            mimetype=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
         )
+        
+    except Exception as e:
+        logger.error(f"Error generating AST report: {e}")
+        return str(e), 500
 
-    if format == "json":
-        return send_file(json_path, as_attachment=True, download_name=f"{project_name}.json")
-
-    with open(json_path, "r") as f:
-        data = json.load(f)
-
-    if not isinstance(data, dict):
-        return "Invalid JSON format. Expected a dictionary of file results.", 500
-
-    # Convert the nested dictionary structure to a flat list for export
-    flat_data = []
-    for file_path, issues in data.items():
-        for issue in issues:
-            if isinstance(issue, dict) and 'error' not in issue:
-                issue['file'] = file_path
-                flat_data.append(issue)
-
-    if format == "csv":
-        return convert_to_csv(flat_data, project_name)
-    elif format == "txt":
-        return convert_to_txt(flat_data, project_name)
-    elif format == "md":
-        return convert_to_markdown(flat_data, project_name)
-    elif format == "html":
-        return convert_to_html(flat_data, project_name)
-    else:
-        abort(400, description=f"Unsupported format: {format}")
-
-    # Generate AST report if it doesn't exist
-    if not os.path.exists(json_path):
-        try:
-            results = analyze_ast(os.path.join(PROJECTS_DIR, project_name))
-            os.makedirs(REPORTS_DIR, exist_ok=True)
-            with open(json_path, 'w') as f:
-                json.dump(results, f, indent=2)
-        except Exception as e:
-            return jsonify({"status": "error", "message": f"Failed to generate AST report: {str(e)}"}), 500
+@app.route("/delete/<path:project_subpath>", methods=["POST"])
+def delete_project(project_subpath):
+    """Delete a project or directory."""
+    try:
+        project_path = os.path.abspath(os.path.join(PROJECTS_DIR, project_subpath))
+        
+        # Security check to prevent directory traversal
+        if not project_path.startswith(PROJECTS_DIR):
+            return jsonify({"status": "error", "message": "Access denied"}), 403
+            
+        if not os.path.exists(project_path):
+            return jsonify({"status": "error", "message": "Project not found"}), 404
+            
+        # Delete the directory and all its contents
+        shutil.rmtree(project_path)
+        return jsonify({"status": "success", "message": "Project deleted successfully"})
+        
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
