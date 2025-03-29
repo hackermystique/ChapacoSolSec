@@ -4,6 +4,14 @@
 
 ChapacoSolSec is an advanced security analysis tool designed specifically for Solana smart contracts. Built for macOS ARM architecture, it combines AST (Abstract Syntax Tree) analysis with machine learning to provide comprehensive security auditing capabilities for Rust-based Solana programs.
 
+## 🎥 Demos
+
+### VSCodium Integration
+<img src="img/demo1.gif" width="100%">
+
+### Analysis Dashboard
+<img src="img/demo2.gif" width="100%">
+
 ## 🎯 Key Features
 
 ### Security Analysis

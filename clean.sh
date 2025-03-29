@@ -60,12 +60,7 @@ clean() {
         log "Removing vendor directory..."
         rm -rf vendor
     fi
-    
-    if [ -d "tests" ]; then
-        log "Removing tests directory..."
-        rm -rf tests
-    fi
-    
+
     if [ -d "projects" ]; then
         log "Removing projects directory..."
         rm -rf projects
